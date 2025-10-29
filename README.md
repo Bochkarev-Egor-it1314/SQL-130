@@ -214,3 +214,251 @@ HAVING COUNT(hd) >= 2;
 ```
 
 ```
+
+Задание 50
+```
+SELECT DISTINCT Outcomes.battle
+FROM Outcomes
+JOIN Ships ON Outcomes.ship = Ships.name
+WHERE Ships.class = 'Kongo';
+```
+
+Задание 51
+```
+WITH AllShips AS (
+    SELECT s.name, c.numGuns, c.displacement
+    FROM Ships s
+    JOIN Classes c ON s.class = c.class
+    
+    UNION
+    
+    SELECT o.ship AS name, c.numGuns, c.displacement
+    FROM Outcomes o
+    LEFT JOIN Ships s ON o.ship = s.name
+    JOIN Classes c ON COALESCE(s.class, o.ship) = c.class
+)
+SELECT a.name
+FROM AllShips a
+WHERE a.numGuns = (
+    SELECT MAX(a2.numGuns)
+    FROM AllShips a2
+    WHERE a2.displacement = a.displacement
+);
+```
+
+Задание 52
+```
+
+```
+
+Задание 53
+```
+SELECT CAST(AVG(CAST(numGuns AS numeric)) AS numeric(10,2)) AS avg_numguns
+FROM Classes
+WHERE type = 'bb'
+```
+
+Задание 54
+```
+WITH AllBattleshipShips AS (
+    SELECT DISTINCT Ships.name, Classes.numGuns
+    FROM Ships
+    JOIN Classes ON Ships.class = Classes.class
+    WHERE Classes.type = 'bb'
+    
+    UNION
+    
+    SELECT DISTINCT Outcomes.ship, Classes.numGuns
+    FROM Outcomes
+    JOIN Classes ON Outcomes.ship = Classes.class
+    WHERE Classes.type = 'bb'
+      AND Outcomes.ship NOT IN (SELECT Ships.name FROM Ships)
+    
+    UNION
+    
+    SELECT DISTINCT Outcomes.ship, Classes.numGuns
+    FROM Outcomes
+    JOIN Ships ON Outcomes.ship = Ships.name
+    JOIN Classes ON Ships.class = Classes.class
+    WHERE Classes.type = 'bb'
+      AND Outcomes.ship NOT IN (SELECT Classes.class FROM Classes WHERE Classes.type = 'bb')
+)
+SELECT CAST(AVG(CAST(AllBattleshipShips.numGuns AS numeric(10,2))) AS numeric(10,2)) AS avg_numguns
+FROM AllBattleshipShips;
+```
+
+Задание 55
+```
+SELECT 
+    Classes.class,
+    MIN(Ships.launched) AS year
+FROM Classes
+LEFT JOIN Ships ON Classes.class = Ships.class
+GROUP BY Classes.class;
+```
+
+Задание 56
+```
+SELECT 
+    Classes.class,
+    COUNT(DISTINCT CASE WHEN Outcomes.result = 'sunk' THEN Outcomes.ship END) AS sunk_count
+FROM Classes
+LEFT JOIN Ships ON Classes.class = Ships.class
+LEFT JOIN Outcomes ON Ships.name = Outcomes.ship OR Classes.class = Outcomes.ship
+GROUP BY Classes.class;
+```
+
+Задание 57
+```
+WITH AllShips AS (
+    -- Все корабли из таблицы Ships
+    SELECT class, name AS ship_name
+    FROM Ships
+    
+    UNION
+    
+    -- Головные корабли из Outcomes, которых нет в Ships
+    SELECT Outcomes.ship AS class, Outcomes.ship AS ship_name
+    FROM Outcomes
+    WHERE Outcomes.ship IN (SELECT class FROM Classes)
+      AND Outcomes.ship NOT IN (SELECT name FROM Ships)
+),
+SunkShips AS (
+    -- Потопленные корабли
+    SELECT Outcomes.ship
+    FROM Outcomes
+    WHERE Outcomes.result = 'sunk'
+)
+SELECT 
+    Classes.class,
+    COUNT(DISTINCT CASE WHEN SunkShips.ship IS NOT NULL THEN AllShips.ship_name END) AS sunk_count
+FROM Classes
+JOIN AllShips ON Classes.class = AllShips.class
+LEFT JOIN SunkShips ON AllShips.ship_name = SunkShips.ship
+GROUP BY Classes.class
+HAVING 
+    -- Не менее 3 кораблей в базе данных
+    COUNT(DISTINCT AllShips.ship_name) >= 3
+    -- Имеет потери в виде потопленных кораблей
+    AND COUNT(DISTINCT CASE WHEN SunkShips.ship IS NOT NULL THEN AllShips.ship_name END) > 0;
+```
+
+Задание 58
+```
+WITH AllMakers AS (
+    SELECT DISTINCT maker FROM Product
+),
+AllTypes AS (
+    SELECT DISTINCT type FROM Product
+),
+MakerTypes AS (
+    SELECT maker, type 
+    FROM AllMakers 
+    CROSS JOIN AllTypes
+),
+ModelCounts AS (
+    SELECT 
+        maker,
+        type,
+        COUNT(model) AS type_count
+    FROM Product
+    GROUP BY maker, type
+),
+TotalModels AS (
+    SELECT 
+        maker,
+        COUNT(model) AS total_count
+    FROM Product
+    GROUP BY maker
+)
+SELECT 
+    MakerTypes.maker,
+    MakerTypes.type,
+    CAST(COALESCE(ROUND((ModelCounts.type_count * 100.0 / TotalModels.total_count), 2), 0.00) AS NUMERIC(10,2)) AS percentage
+FROM MakerTypes
+LEFT JOIN ModelCounts ON MakerTypes.maker = ModelCounts.maker AND MakerTypes.type = ModelCounts.type
+JOIN TotalModels ON MakerTypes.maker = TotalModels.maker
+ORDER BY MakerTypes.maker, MakerTypes.type;
+```
+
+Задание 59
+```
+WITH PointBalances AS (
+    SELECT 
+        COALESCE(Income_o.point, Outcome_o.point) AS point,
+        COALESCE(Income_o.inc, 0) - COALESCE(Outcome_o.out, 0) AS daily_balance
+    FROM Income_o
+    FULL JOIN Outcome_o ON Income_o.point = Outcome_o.point AND Income_o.date = Outcome_o.date
+)
+SELECT 
+    point,
+    SUM(daily_balance) AS remainder
+FROM PointBalances
+GROUP BY point;
+```
+
+Задание 60
+```
+WITH PointBalances AS (
+    SELECT 
+        COALESCE(Income_o.point, Outcome_o.point) AS point,
+        COALESCE(Income_o.inc, 0) - COALESCE(Outcome_o.out, 0) AS daily_balance,
+        COALESCE(Income_o.date, Outcome_o.date) AS operation_date
+    FROM Income_o
+    FULL JOIN Outcome_o ON Income_o.point = Outcome_o.point AND Income_o.date = Outcome_o.date
+    WHERE COALESCE(Income_o.date, Outcome_o.date) < '2001-04-15'
+)
+SELECT 
+    point,
+    SUM(daily_balance) AS remainder
+FROM PointBalances
+GROUP BY point
+HAVING SUM(daily_balance) IS NOT NULL;
+```
+
+Задание 61
+```
+WITH PointBalances AS (
+    SELECT 
+        COALESCE(Income_o.point, Outcome_o.point) AS point,
+        COALESCE(Income_o.inc, 0) - COALESCE(Outcome_o.out, 0) AS daily_balance
+    FROM Income_o
+    FULL JOIN Outcome_o ON Income_o.point = Outcome_o.point AND Income_o.date = Outcome_o.date
+)
+SELECT 
+    SUM(daily_balance) AS total_remainder
+FROM PointBalances;
+```
+
+Задание 62
+```
+SELECT 
+    SUM(COALESCE(inc, 0)) - SUM(COALESCE(out, 0)) AS total_remainder
+FROM (
+    SELECT point, date, inc, 0 AS out
+    FROM Income_o
+    WHERE date < '2001-04-15'
+    UNION ALL
+    SELECT point, date, 0 AS inc, out
+    FROM Outcome_o
+    WHERE date < '2001-04-15'
+) AS Combined;
+```
+
+
+Задание 63
+```
+
+```
+
+
+Задание 64
+```
+
+```
+
+
+Задание 65
+```
+
+```
