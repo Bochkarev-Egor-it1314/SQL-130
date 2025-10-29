@@ -127,82 +127,219 @@ HAVING COUNT(hd) >= 2;
 
 Задание 16
 ```
-
+WITH uniq AS (
+  SELECT DISTINCT model, speed, ram
+  FROM PC
+)
+SELECT u1.model AS model_high,
+       u2.model AS model_low,
+       u1.speed,
+       u1.ram
+FROM uniq u1
+JOIN uniq u2
+  ON u1.speed = u2.speed
+ AND u1.ram   = u2.ram
+ AND u1.model > u2.model
+ORDER BY u1.model DESC, u2.model ASC;
 ```
 
 Задание 17
 ```
-
+SELECT DISTINCT p.type, l.model, l.speed
+FROM Laptop l
+JOIN Product p ON p.model = l.model
+WHERE p.type = 'Laptop'
+  AND l.speed < (SELECT MIN(speed) FROM PC);
 ```
 
 Задание 18
 ```
-
+SELECT p.maker, MIN(pr.price) AS price
+FROM Product p
+JOIN Printer pr ON p.model = pr.model
+WHERE p.type = 'Printer'
+  AND pr.color = 'y'
+GROUP BY p.maker
+HAVING MIN(pr.price) = (SELECT MIN(price) FROM Printer WHERE color = 'y');
 ```
 
 Задание 19
 ```
-
+SELECT p.maker, AVG(l.screen) AS avg_screen
+FROM Product p
+JOIN Laptop l ON p.model = l.model
+GROUP BY p.maker;
 ```
 
 Задание 20
 ```
-
+ошибка в задании
 ```
 
 Задание 21
 ```
-
+SELECT p.maker, MAX(pc.price) AS max_price
+FROM Product p
+JOIN PC pc ON p.model = pc.model
+WHERE p.type = 'PC'
+GROUP BY p.maker
+ORDER BY p.maker;
 ```
 
 Задание 22
 ```
-
+SELECT speed, AVG(price) AS avg_price
+FROM PC
+WHERE speed > 600
+GROUP BY speed
+ORDER BY speed;
 ```
 
 Задание 23
 ```
-
+SELECT DISTINCT p.maker
+FROM Product p
+WHERE p.maker IN (
+    SELECT p1.maker
+    FROM Product p1
+    JOIN PC pc ON p1.model = pc.model
+    WHERE p1.type = 'PC' AND pc.speed >= 750
+)
+AND p.maker IN (
+    SELECT p2.maker
+    FROM Product p2
+    JOIN Laptop l ON p2.model = l.model
+    WHERE p2.type = 'Laptop' AND l.speed >= 750
+);
 ```
 
 Задание 24
 ```
-
+SELECT model
+FROM PC
+WHERE price = (SELECT MAX(price) FROM (
+    SELECT price FROM PC
+    UNION ALL
+    SELECT price FROM Laptop
+    UNION ALL
+    SELECT price FROM Printer
+) AS all_products)
+UNION
+SELECT model
+FROM Laptop
+WHERE price = (SELECT MAX(price) FROM (
+    SELECT price FROM PC
+    UNION ALL
+    SELECT price FROM Laptop
+    UNION ALL
+    SELECT price FROM Printer
+) AS all_products)
+UNION
+SELECT model
+FROM Printer
+WHERE price = (SELECT MAX(price) FROM (
+    SELECT price FROM PC
+    UNION ALL
+    SELECT price FROM Laptop
+    UNION ALL
+    SELECT price FROM Printer
+) AS all_products);
 ```
 
 Задание 25
 ```
-
+SELECT DISTINCT p.maker
+FROM Product p
+JOIN PC pc ON p.model = pc.model
+WHERE p.type = 'PC'
+  AND pc.ram = (SELECT MIN(ram) FROM PC)
+  AND pc.speed = (
+        SELECT MAX(speed)
+        FROM PC
+        WHERE ram = (SELECT MIN(ram) FROM PC)
+  )
+  AND p.maker IN (
+        SELECT DISTINCT maker
+        FROM Product
+        WHERE type = 'Printer'
+  );
 ```
 
 Задание 26
 ```
-
+SELECT AVG(price) AS avg_price
+FROM (
+    SELECT price FROM PC
+    WHERE model IN (SELECT model FROM Product WHERE maker = 'A')
+    UNION ALL
+    SELECT price FROM Laptop
+    WHERE model IN (SELECT model FROM Product WHERE maker = 'A')
+) AS all_products;
 ```
 
 Задание 27
 ```
-
+SELECT p.maker, AVG(pc.hd) AS avg_hd
+FROM Product p
+JOIN PC pc ON p.model = pc.model
+WHERE p.type = 'PC'
+  AND p.maker IN (
+      SELECT DISTINCT maker
+      FROM Product
+      WHERE type = 'Printer'
+  )
+GROUP BY p.maker
+ORDER BY p.maker;
 ```
 
 Задание 28
 ```
-
+SELECT COUNT(*) AS num_makers
+FROM (
+    SELECT maker
+    FROM Product
+    GROUP BY maker
+    HAVING COUNT(model) = 1
+) AS t;
 ```
 
 Задание 29
 ```
-
+SELECT 
+    COALESCE(i.point, o.point) AS point,
+    COALESCE(i.date, o.date) AS date,
+    i.inc,
+    o.out
+FROM Income_o i
+FULL OUTER JOIN Outcome_o o
+    ON i.point = o.point AND i.date = o.date
+ORDER BY point, date;
 ```
 
 Задание 30
 ```
-
+SELECT 
+    COALESCE(i.point, o.point) AS point,
+    COALESCE(i.date, o.date) AS date,
+    o.total_out AS out,
+    i.total_inc AS inc
+FROM
+    (SELECT point, date, SUM(inc) AS total_inc
+     FROM Income
+     GROUP BY point, date) i
+FULL OUTER JOIN
+    (SELECT point, date, SUM(out) AS total_out
+     FROM Outcome
+     GROUP BY point, date) o
+ON i.point = o.point AND i.date = o.date
+ORDER BY point, date;
 ```
 
 Задание 31
 ```
-
+SELECT class, country
+FROM Classes
+WHERE bore >= 16;
 ```
 
 Задание 32
