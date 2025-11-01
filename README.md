@@ -1148,3 +1148,597 @@ LEFT JOIN NumberedBattles b ON b.rn = a.rn + fc.cnt
 WHERE a.rn <= fc.cnt
 ORDER BY a.rn
 ```
+***
+
+#Ивано-романовский SQL
+
+Задание 16
+```
+SELECT DISTINCT 
+    p1.model AS model1,
+    p2.model AS model2, 
+    p1.speed, 
+    p1.ram
+FROM PC p1
+JOIN PC p2 ON p1.speed = p2.speed AND p1.ram = p2.ram
+WHERE p1.model > p2.model;
+```
+
+Задание 17
+```
+SELECT DISTINCT 'Laptop' AS type, model, speed
+FROM Laptop
+WHERE speed < ALL (SELECT speed FROM PC);
+```
+
+Задание 18
+```
+SELECT DISTINCT Product.maker, Printer.price
+FROM Product
+JOIN Printer ON Product.model = Printer.model
+WHERE Printer.color = 'y'
+  AND Printer.price = (SELECT MIN(price) FROM Printer WHERE color = 'y');
+```
+
+Задание 19
+```
+SELECT Product.maker, AVG(Laptop.screen) AS average_screen
+FROM Product
+JOIN Laptop ON Product.model = Laptop.model
+GROUP BY Product.maker;
+```
+
+Задание 20
+```
+SELECT maker, COUNT(model) AS model_count
+FROM Product
+WHERE type = 'PC'
+GROUP BY maker
+HAVING COUNT(model) >= 3;
+```
+
+Задание 21
+```
+SELECT Product.maker, MAX(PC.price) AS max_price
+FROM Product
+JOIN PC ON Product.model = PC.model
+GROUP BY Product.maker;
+```
+
+Задание 22
+```
+SELECT speed, AVG(price) AS average_price
+FROM PC
+WHERE speed > 600
+GROUP BY speed;
+```
+
+Задание 23
+```
+SELECT DISTINCT maker
+FROM Product
+JOIN PC ON Product.model = PC.model
+WHERE PC.speed >= 750
+AND maker IN (
+    SELECT maker
+    FROM Product
+    JOIN Laptop ON Product.model = Laptop.model
+    WHERE Laptop.speed >= 750
+);
+```
+
+Задание 24
+```
+SELECT model
+FROM (
+    SELECT model, price FROM PC
+    UNION
+    SELECT model, price FROM Laptop
+    UNION
+    SELECT model, price FROM Printer
+) AS all_products
+WHERE price = (
+    SELECT MAX(price)
+    FROM (
+        SELECT price FROM PC
+        UNION
+        SELECT price FROM Laptop
+        UNION
+        SELECT price FROM Printer
+    ) AS all_prices
+);
+```
+
+Задание 25
+```
+SELECT DISTINCT maker
+FROM Product
+JOIN PC ON Product.model = PC.model
+WHERE PC.ram = (SELECT MIN(ram) FROM PC)
+  AND PC.speed = (
+      SELECT MAX(speed) 
+      FROM PC 
+      WHERE ram = (SELECT MIN(ram) FROM PC)
+  )
+  AND maker IN (SELECT maker FROM Product WHERE type = 'Printer');
+```
+
+Задание 26
+```
+SELECT AVG(price) AS average_price
+FROM (
+    SELECT price FROM PC
+    JOIN Product ON PC.model = Product.model
+    WHERE Product.maker = 'A'
+    UNION ALL
+    SELECT price FROM Laptop
+    JOIN Product ON Laptop.model = Product.model
+    WHERE Product.maker = 'A'
+) AS all_products;
+```
+
+Задание 27
+```
+SELECT Product.maker, AVG(PC.hd) AS average_hd
+FROM Product
+JOIN PC ON Product.model = PC.model
+WHERE Product.maker IN (SELECT maker FROM Product WHERE type = 'Printer')
+GROUP BY Product.maker;
+```
+
+Задание 28
+```
+SELECT COUNT(*) AS maker_count
+FROM (
+    SELECT maker
+    FROM Product
+    GROUP BY maker
+    HAVING COUNT(model) = 1
+) AS single_model_makers;
+```
+
+Задание 29
+```
+SELECT 
+    COALESCE(i.point, o.point) AS point,
+    COALESCE(i.date, o.date) AS date,
+    i.inc,
+    o.out
+FROM Income_o i
+FULL JOIN Outcome_o o ON i.point = o.point AND i.date = o.date;
+```
+
+Задание 30
+```
+SELECT 
+    point,
+    date,
+    SUM(out) AS out,
+    SUM(inc) AS inc
+FROM (
+    SELECT point, date, out, NULL AS inc FROM Outcome
+    UNION ALL
+    SELECT point, date, NULL AS out, inc FROM Income
+) AS combined
+GROUP BY point, date;
+```
+
+Задание 41
+```
+SELECT start_pair
+FROM Timepair
+WHERE id = 4;
+```
+
+Задание 42
+```
+SELECT 
+    (end_pair - start_pair) as time
+FROM 
+    (SELECT 
+        (SELECT start_pair FROM Timepair WHERE id = 2) as start_pair,
+        (SELECT end_pair FROM Timepair WHERE id = 4) as end_pair
+    ) as time_diff;
+```
+
+Задание 43
+```
+SELECT DISTINCT t.last_name
+FROM Teacher t
+JOIN Schedule sch ON t.id = sch.teacher
+JOIN Subject s ON sch.subject = s.id
+WHERE s.name = 'Physical Culture'
+ORDER BY t.last_name;
+```
+
+Задание 44
+```
+SELECT MAX(
+    EXTRACT(YEAR FROM AGE(NOW(), s.birthday))
+) as max_year
+FROM Student s
+JOIN Student_in_class sic ON s.id = sic.student
+JOIN Class c ON sic.class = c.id
+WHERE c.name LIKE '10%';
+```
+
+Задание 45
+```
+SELECT classroom
+FROM Schedule
+GROUP BY classroom
+HAVING COUNT(*) = (
+    SELECT MAX(classroom_count)
+    FROM (
+        SELECT COUNT(*) as classroom_count
+        FROM Schedule
+        GROUP BY classroom
+    ) as counts
+);
+```
+
+Задание 46
+```
+SELECT DISTINCT c.name
+FROM Class c
+WHERE c.id IN (
+    SELECT sch.class
+    FROM Schedule sch
+    JOIN Teacher t ON sch.teacher = t.id
+    WHERE t.last_name = 'Krauze'
+);
+```
+
+Задание 47
+```
+SELECT COUNT(*) as count
+FROM Schedule sch
+JOIN Teacher t ON sch.teacher = t.id
+WHERE t.last_name = 'Krauze'
+AND sch.date = '2019-08-30';
+```
+
+Задание 48
+```
+SELECT c.name, COUNT(sic.student) as count
+FROM Class c
+JOIN Student_in_class sic ON c.id = sic.class
+GROUP BY c.id, c.name
+ORDER BY count DESC;
+```
+
+Задание 49
+```
+SELECT 
+    ROUND(
+        (COUNT(CASE WHEN c.name = '10 A' THEN 1 END) * 100.0 / COUNT(*)),
+        4
+    ) as percent
+FROM Student_in_class sic
+JOIN Class c ON sic.class = c.id;
+```
+
+Задание 50
+```
+SELECT 
+    FLOOR(
+        (COUNT(CASE WHEN EXTRACT(YEAR FROM birthday) = 2000 THEN 1 END) * 100.0 / COUNT(*))
+    ) as percent
+FROM Student;
+```
+
+Задание 51
+```
+INSERT INTO Goods (good_id, good_name, type)
+SELECT 
+    (SELECT COUNT(*) FROM Goods) + 1,
+    'Cheese',
+    (SELECT good_type_id FROM GoodTypes WHERE good_type_name = 'food');
+```
+
+Задание 52
+```
+INSERT INTO GoodTypes (good_type_id, good_type_name)
+VALUES ((SELECT COUNT(*) FROM GoodTypes) + 1, 'auto');
+```
+
+Задание 53
+```
+UPDATE FamilyMembers
+SET member_name = 'Andie Anthony'
+WHERE member_name = 'Andie Quincey';
+```
+
+Задание 54
+```
+DELETE FROM FamilyMembers
+WHERE member_name LIKE '%Quincey';
+```
+
+Задание 55
+```
+DELETE FROM Company
+WHERE id IN (
+    SELECT company
+    FROM Trip
+    GROUP BY company
+    HAVING COUNT(*) = (
+        SELECT MIN(flight_count)
+        FROM (
+            SELECT COUNT(*) as flight_count
+            FROM Trip
+            GROUP BY company
+        ) as counts
+    )
+);
+```
+
+Задание 56
+```
+DELETE FROM Trip
+WHERE town_from = 'Moscow';
+```
+
+Задание 57
+```
+UPDATE Timepair
+SET start_pair = start_pair + INTERVAL '30 minutes',
+    end_pair = end_pair + INTERVAL '30 minutes';
+```
+
+Задание 58
+```
+INSERT INTO Reviews (id, reservation_id, rating)
+SELECT 
+    (SELECT COUNT(*) FROM Reviews) + 1,
+    r.id,
+    5
+FROM Reservations r
+JOIN Rooms rm ON r.room_id = rm.id
+JOIN Users u ON r.user_id = u.id
+WHERE rm.address = '11218, Friel Place, New York'
+AND u.name = 'George Clooney';
+```
+
+Задание 59
+```
+SELECT *
+FROM Users
+WHERE phone_number LIKE '+375%';
+```
+
+Задание 60
+```
+SELECT teacher
+FROM Schedule sch
+JOIN Class c ON sch.class = c.id
+WHERE c.name LIKE '11%'
+GROUP BY teacher
+HAVING COUNT(DISTINCT c.name) = (
+    SELECT COUNT(DISTINCT name)
+    FROM Class
+    WHERE name LIKE '11%'
+);
+```
+
+Задание 61
+```
+SELECT DISTINCT r.*
+FROM Rooms r
+JOIN Reservations res ON r.id = res.room_id
+WHERE (res.start_date <= '2020-03-24' AND res.end_date >= '2020-03-18')
+   OR (res.start_date BETWEEN '2020-03-18' AND '2020-03-24')
+   OR (res.end_date BETWEEN '2020-03-18' AND '2020-03-24');
+```
+
+Задание 62
+```
+SELECT 
+    last_name  '.'  SUBSTRING(first_name FROM 1 FOR 1) || '.' as name
+FROM Student
+ORDER BY name ASC;
+```
+
+Задание 63
+```
+none
+```
+
+Задание 64
+```
+SELECT 
+    EXTRACT(YEAR FROM start_date) as year,
+    EXTRACT(MONTH FROM start_date) as month,
+    COUNT(*) as amount
+FROM Reservations
+GROUP BY EXTRACT(YEAR FROM start_date), EXTRACT(MONTH FROM start_date)
+HAVING COUNT(*) >= 1
+ORDER BY year ASC, month ASC;
+```
+
+Задание 65
+```
+SELECT 
+    r.room_id,
+    FLOOR(AVG(rev.rating)) as rating
+FROM Reservations r
+JOIN Reviews rev ON r.id = rev.reservation_id
+GROUP BY r.room_id
+ORDER BY r.room_id;
+```
+
+Задание 66
+```
+SELECT 
+    r.home_type,
+    r.address,
+    COALESCE(SUM(DATE_PART('day', res.end_date - res.start_date)), 0) as days,
+    COALESCE(SUM(res.total), 0) as total_fee
+FROM Rooms r
+LEFT JOIN Reservations res ON r.id = res.room_id
+WHERE r.has_tv = TRUE 
+  AND r.has_internet = TRUE 
+  AND r.has_kitchen = TRUE 
+  AND r.has_air_con = TRUE
+GROUP BY r.id, r.home_type, r.address
+ORDER BY r.id;
+```
+
+Задание 67
+```
+SELECT 
+    TO_CHAR(time_out, 'HH24:MI')  ', '  
+    EXTRACT(DAY FROM time_out)  '.'  EXTRACT(MONTH FROM time_out) || 
+    ' - ' || 
+    TO_CHAR(time_in, 'HH24:MI')  ', '  
+    EXTRACT(DAY FROM time_in)  '.'  EXTRACT(MONTH FROM time_in) as flight_time
+FROM Trip
+ORDER BY id;
+```
+
+Задание 68
+```
+SELECT 
+    r.id as room_id,
+    u.name as name,
+    res.end_date as end_date
+FROM Rooms r
+JOIN Reservations res ON r.id = res.room_id
+JOIN Users u ON res.user_id = u.id
+WHERE res.end_date = (
+    SELECT MAX(res2.end_date)
+    FROM Reservations res2
+    WHERE res2.room_id = r.id
+)
+ORDER BY r.id;
+```
+
+Задание 69
+```
+SELECT 
+    r.owner_id as owner_id,
+    COALESCE(SUM(res.total), 0) as total_earn
+FROM Rooms r
+LEFT JOIN Reservations res ON r.id = res.room_id
+GROUP BY r.owner_id
+ORDER BY r.owner_id;
+```
+
+Задание 70
+```
+SELECT 
+    category,
+    COUNT(*) as count
+FROM (
+    SELECT 
+        CASE 
+            WHEN price <= 100 THEN 'economy'
+            WHEN price > 100 AND price < 200 THEN 'comfort'
+            WHEN price >= 200 THEN 'premium'
+        END as category
+    FROM Rooms
+) as categorized
+GROUP BY category
+ORDER BY 
+    CASE 
+        WHEN category = 'economy' THEN 1
+        WHEN category = 'comfort' THEN 2
+        WHEN category = 'premium' THEN 3
+    END;
+```
+
+Задание 71
+```
+none
+```
+
+Задание 72
+```
+SELECT 
+    room_id,
+    CEIL(AVG(total / DATEDIFF(end_date, start_date))) as avg_price
+FROM Reservations
+GROUP BY room_id
+HAVING COUNT(*) >= 1
+ORDER BY room_id;
+```
+
+Задание 73
+```
+SELECT 
+    room_id,
+    COUNT(*) as count
+FROM Reservations
+GROUP BY room_id
+HAVING COUNT(*) % 2 = 1
+ORDER BY room_id;
+```
+
+Задание 74
+```
+SELECT 
+    id,
+    CASE 
+        WHEN has_internet = TRUE THEN 'YES'
+        ELSE 'NO'
+    END as has_internet
+FROM Rooms
+ORDER BY id;
+```
+
+Задание 75
+```
+SELECT 
+    last_name,
+    first_name,
+    birthday
+FROM Student
+WHERE MONTH(birthday) = 5
+ORDER BY last_name, first_name;
+```
+
+Задание 76
+```
+SELECT 
+    u.name,
+    CASE WHEN EXISTS (SELECT 1 FROM Rooms r WHERE r.owner_id = u.id) THEN 1 ELSE 0 END as is_owner,
+    CASE WHEN EXISTS (SELECT 1 FROM Reservations res WHERE res.user_id = u.id) THEN 1 ELSE 0 END as is_tenant
+FROM Users u
+ORDER BY u.name;
+```
+
+Задание 77
+```
+CREATE VIEW People AS
+SELECT first_name, last_name FROM Student
+UNION
+SELECT first_name, last_name FROM Teacher;
+```
+
+Задание 78
+```
+SELECT *
+FROM Users
+WHERE email LIKE '%@hotmail.com';
+```
+
+Задание 79
+```
+SELECT 
+    id,
+    home_type,
+    CASE 
+        WHEN has_tv = TRUE AND has_internet = TRUE THEN price * 0.9
+        ELSE price
+    END as price
+FROM Rooms
+ORDER BY id;
+```
+
+Задание 99
+```
+SELECT 
+    SUM(price * items) as income_from_female
+FROM Purchases
+WHERE user_gender IN ('female', 'f');
+```
