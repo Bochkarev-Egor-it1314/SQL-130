@@ -344,12 +344,237 @@ WHERE bore >= 16;
 
 Задание 32
 ```
-
+none
 ```
 
 Задание 33
 ```
+SELECT ship
+FROM Outcomes
+WHERE battle = 'North Atlantic' AND result = 'sunk';
+```
 
+Заадние 34
+```
+SELECT name
+FROM Ships
+JOIN Classes ON Ships.class = Classes.class
+WHERE launched >= 1922
+  AND type = 'bb'
+  AND displacement > 35000;
+```
+
+Заадние 35
+```
+SELECT model, type
+FROM Product
+WHERE model NOT LIKE '%[^0-9]%' 
+   OR model NOT LIKE '%[^A-Za-z]%';
+```
+
+Заадние 36
+```
+SELECT name
+FROM Ships
+WHERE name = class
+UNION
+SELECT ship
+FROM Outcomes
+WHERE ship IN (SELECT class FROM Classes);
+```
+
+Заадние 37
+```
+SELECT class
+FROM (
+    SELECT class, name AS ship FROM Ships
+    UNION
+    SELECT class, ship FROM Outcomes o 
+    JOIN Classes c ON o.ship = c.class
+    UNION  
+    SELECT ship AS class, ship FROM Outcomes
+    WHERE ship IN (SELECT class FROM Classes)
+) AS all_ships
+GROUP BY class
+HAVING COUNT(ship) = 1;
+```
+
+Заадние 38
+```
+SELECT country
+FROM Classes
+WHERE type = 'bb'
+INTERSECT
+SELECT country
+FROM Classes
+WHERE type = 'bc';
+```
+
+Заадние 39
+```
+SELECT DISTINCT o1.ship
+FROM Outcomes o1
+JOIN Battles b1 ON o1.battle = b1.name
+JOIN Outcomes o2 ON o1.ship = o2.ship
+JOIN Battles b2 ON o2.battle = b2.name
+WHERE o1.result = 'damaged'
+  AND b2.date > b1.date;
+```
+
+Заадние 40
+```
+SELECT maker, type
+FROM Product
+GROUP BY maker, type
+HAVING COUNT(model) > 1
+   AND maker NOT IN (
+       SELECT maker
+       FROM Product
+       GROUP BY maker
+       HAVING COUNT(DISTINCT type) > 1
+   );
+```
+
+Заадние 41
+```
+WITH AllProducts AS (
+    SELECT maker, price FROM Product JOIN PC ON Product.model = PC.model
+    UNION ALL
+    SELECT maker, price FROM Product JOIN Laptop ON Product.model = Laptop.model
+    UNION ALL
+    SELECT maker, price FROM Product JOIN Printer ON Product.model = Printer.model
+)
+SELECT 
+    maker,
+    CASE 
+        WHEN SUM(CASE WHEN price IS NULL THEN 1 ELSE 0 END) > 0 THEN NULL
+        ELSE MAX(price)
+    END AS max_price
+FROM AllProducts
+GROUP BY maker;
+```
+
+Заадние 42
+```
+SELECT ship, battle
+FROM Outcomes
+WHERE result = 'sunk';
+```
+
+Заадние 43
+```
+SELECT name
+FROM Battles
+WHERE YEAR(date) NOT IN (
+    SELECT launched 
+    FROM Ships 
+    WHERE launched IS NOT NULL
+);
+```
+
+Заадние 44
+```
+SELECT name
+FROM Ships
+WHERE name LIKE 'R%'
+UNION
+SELECT ship
+FROM Outcomes
+WHERE ship LIKE 'R%';
+```
+
+Заадние 45
+```
+SELECT name
+FROM Ships
+WHERE name LIKE '% % %'
+UNION
+SELECT ship
+FROM Outcomes
+WHERE ship LIKE '% % %';
+```
+
+Заадние 46
+```
+SELECT o.ship, c.displacement, c.numGuns
+FROM Outcomes o
+LEFT JOIN Ships s ON o.ship = s.name
+LEFT JOIN Classes c ON COALESCE(s.class, o.ship) = c.class
+WHERE o.battle = 'Guadalcanal';
+```
+
+Заадние 47
+```
+WITH CountryShips AS (
+    SELECT 
+        COALESCE(s.name, o.ship) as ship_name,
+        c.country
+    FROM Outcomes o
+    LEFT JOIN Ships s ON o.ship = s.name
+    LEFT JOIN Classes c ON COALESCE(s.class, o.ship) = c.class
+    WHERE c.country IS NOT NULL
+    UNION
+    SELECT 
+        s.name as ship_name,
+        c.country
+    FROM Ships s
+    JOIN Classes c ON s.class = c.class
+    WHERE s.name NOT IN (SELECT ship FROM Outcomes)
+),
+SunkShips AS (
+    SELECT DISTINCT ship as ship_name
+    FROM Outcomes
+    WHERE result = 'sunk'
+),
+CountryShipStatus AS (
+    SELECT 
+        cs.country,
+        cs.ship_name,
+        CASE WHEN ss.ship_name IS NOT NULL THEN 1 ELSE 0 END as is_sunk
+    FROM CountryShips cs
+    LEFT JOIN SunkShips ss ON cs.ship_name = ss.ship_name
+)
+SELECT country
+FROM CountryShipStatus
+GROUP BY country
+HAVING COUNT(*) > 0 AND SUM(is_sunk) = COUNT(*);
+```
+
+Заадние 48
+```
+SELECT DISTINCT s.class
+FROM Outcomes o
+JOIN Ships s ON o.ship = s.name
+WHERE o.result = 'sunk'
+UNION
+SELECT o.ship
+FROM Outcomes o
+WHERE o.result = 'sunk'
+AND o.ship IN (SELECT class FROM Classes)
+AND o.ship NOT IN (SELECT name FROM Ships);
+```
+
+Заадние 49
+```
+SELECT DISTINCT o.ship
+FROM Outcomes o
+WHERE o.ship IN (
+    SELECT s.name
+    FROM Ships s
+    JOIN Classes c ON s.class = c.class
+    WHERE c.bore = 16
+)
+OR o.ship IN (
+    SELECT c.class
+    FROM Classes c
+    WHERE c.bore = 16
+    AND c.class NOT IN (SELECT name FROM Ships)
+)
+UNION
+SELECT s.name
+FROM Ships s
+JOIN Classes c ON s.class = c.class
+WHERE c.bore = 16;
 ```
 
 Задание 50
@@ -385,7 +610,7 @@ WHERE a.numGuns = (
 
 Задание 52
 ```
-
+none
 ```
 
 Задание 53
@@ -584,7 +809,7 @@ FROM (
 
 Задание 63
 ```
-
+none
 ```
 
 Задание 64
