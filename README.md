@@ -1041,8 +1041,253 @@ WHERE FlightDurations.total_minutes = (SELECT max_minutes FROM MaxFlightTime);
 
 Задание 80
 ```
-
+SELECT DISTINCT Product.maker
+FROM Product
+WHERE Product.type IN ('PC', 'Laptop', 'Printer')
+  AND Product.maker NOT IN (
+      SELECT Product.maker
+      FROM Product
+      LEFT JOIN PC ON Product.model = PC.model
+      WHERE Product.type = 'PC'
+        AND PC.model IS NULL
+  )
 ```
+
+Задание 81
+```
+WITH MonthlyOutcome AS (
+    SELECT 
+        YEAR(date) AS year,
+        MONTH(date) AS month,
+        SUM(out) AS total_out
+    FROM Outcome
+    GROUP BY YEAR(date), MONTH(date)
+),
+MaxOutcome AS (
+    SELECT MAX(total_out) AS max_total
+    FROM MonthlyOutcome
+)
+SELECT Outcome.*
+FROM Outcome
+JOIN MonthlyOutcome ON YEAR(Outcome.date) = MonthlyOutcome.year 
+                    AND MONTH(Outcome.date) = MonthlyOutcome.month
+WHERE MonthlyOutcome.total_out = (SELECT max_total FROM MaxOutcome)
+```
+
+Задание 82
+```
+WITH NumberedPC AS (
+    SELECT code, price, 
+           ROW_NUMBER() OVER (ORDER BY code) AS rn
+    FROM PC
+)
+SELECT 
+    n1.code AS first_code,
+    AVG(n2.price) AS avg_price
+FROM NumberedPC n1
+JOIN NumberedPC n2 ON n2.rn BETWEEN n1.rn AND n1.rn + 5
+GROUP BY n1.code, n1.rn
+HAVING COUNT(n2.code) = 6
+ORDER BY n1.rn;
+```
+
+Задание 83
+```
+SELECT Ships.name
+FROM Ships
+JOIN Classes ON Ships.class = Classes.class
+WHERE 
+    CASE WHEN Classes.numGuns = 8 THEN 1 ELSE 0 END +
+    CASE WHEN Classes.bore = 15 THEN 1 ELSE 0 END +
+    CASE WHEN Classes.displacement = 32000 THEN 1 ELSE 0 END +
+    CASE WHEN Classes.type = 'bb' THEN 1 ELSE 0 END +
+    CASE WHEN Ships.launched = 1915 THEN 1 ELSE 0 END +
+    CASE WHEN Ships.class = 'Kongo' THEN 1 ELSE 0 END +
+    CASE WHEN Classes.country = 'USA' THEN 1 ELSE 0 END >= 4;
+```
+
+Задание 84
+```
+WITH AprilDecades AS (
+    SELECT 
+        Company.ID_comp,
+        Company.name,
+        CASE 
+            WHEN DAY(Pass_in_trip.date) BETWEEN 1 AND 10 THEN 1
+            WHEN DAY(Pass_in_trip.date) BETWEEN 11 AND 20 THEN 2
+            ELSE 3
+        END AS decade,
+        COUNT(*) AS passenger_count
+    FROM Company
+    JOIN Trip ON Company.ID_comp = Trip.ID_comp
+    JOIN Pass_in_trip ON Trip.trip_no = Pass_in_trip.trip_no
+    WHERE YEAR(Pass_in_trip.date) = 2003 
+        AND MONTH(Pass_in_trip.date) = 4
+    GROUP BY 
+        Company.ID_comp, 
+        Company.name,
+        CASE 
+            WHEN DAY(Pass_in_trip.date) BETWEEN 1 AND 10 THEN 1
+            WHEN DAY(Pass_in_trip.date) BETWEEN 11 AND 20 THEN 2
+            ELSE 3
+        END
+)
+SELECT 
+    name,
+    COALESCE(SUM(CASE WHEN decade = 1 THEN passenger_count END), 0) AS decade1,
+    COALESCE(SUM(CASE WHEN decade = 2 THEN passenger_count END), 0) AS decade2,
+    COALESCE(SUM(CASE WHEN decade = 3 THEN passenger_count END), 0) AS decade3
+FROM AprilDecades
+GROUP BY ID_comp, name
+ORDER BY name;
+```
+
+Задание 85
+```
+SELECT maker
+FROM Product
+GROUP BY maker
+HAVING COUNT(DISTINCT type) = 1 
+   AND (
+        (MAX(type) = 'Printer') 
+        OR 
+        (MAX(type) = 'PC' AND COUNT(model) >= 3)
+   );
+```
+
+
+Задание 86
+```
+SELECT 
+    maker,
+    STRING_AGG(type, '/') WITHIN GROUP (ORDER BY type) AS product_types
+FROM (
+    SELECT DISTINCT maker, type
+    FROM Product
+) AS UniqueProducts
+GROUP BY maker;
+```
+
+Задание 87
+```
+WITH FirstFlight AS (
+    SELECT 
+        Pass_in_trip.ID_psg,
+        MIN(CAST(Pass_in_trip.date AS datetime) + CAST(Trip.time_out AS datetime)) AS first_flight_datetime
+    FROM Pass_in_trip
+    JOIN Trip ON Pass_in_trip.trip_no = Trip.trip_no
+    GROUP BY Pass_in_trip.ID_psg
+),
+Hometown AS (
+    SELECT 
+        Pass_in_trip.ID_psg,
+        Trip.town_from AS hometown
+    FROM Pass_in_trip
+    JOIN Trip ON Pass_in_trip.trip_no = Trip.trip_no
+    JOIN FirstFlight ON Pass_in_trip.ID_psg = FirstFlight.ID_psg
+    WHERE CAST(Pass_in_trip.date AS datetime) + CAST(Trip.time_out AS datetime) = FirstFlight.first_flight_datetime
+),
+MoscowArrivals AS (
+    SELECT 
+        Pass_in_trip.ID_psg,
+        COUNT(*) AS moscow_count
+    FROM Pass_in_trip
+    JOIN Trip ON Pass_in_trip.trip_no = Trip.trip_no
+    WHERE Trip.town_to = 'Moscow'
+    GROUP BY Pass_in_trip.ID_psg
+    HAVING COUNT(*) > 1
+)
+SELECT 
+    Passenger.name,
+    MoscowArrivals.moscow_count
+FROM MoscowArrivals
+JOIN Hometown ON MoscowArrivals.ID_psg = Hometown.ID_psg
+JOIN Passenger ON MoscowArrivals.ID_psg = Passenger.ID_psg
+WHERE Hometown.hometown <> 'Moscow';
+```
+
+Задание 88
+```
+WITH PassengerCompanyStats AS (
+    SELECT 
+        Passenger.ID_psg,
+        Passenger.name,
+        Company.ID_comp,
+        Company.name AS company_name,
+        COUNT(*) AS flight_count
+    FROM Passenger
+    JOIN Pass_in_trip ON Passenger.ID_psg = Pass_in_trip.ID_psg
+    JOIN Trip ON Pass_in_trip.trip_no = Trip.trip_no
+    JOIN Company ON Trip.ID_comp = Company.ID_comp
+    GROUP BY Passenger.ID_psg, Passenger.name, Company.ID_comp, Company.name
+),
+SingleCompanyPassengers AS (
+    SELECT 
+        ID_psg,
+        name,
+        company_name,
+        flight_count
+    FROM PassengerCompanyStats
+    WHERE ID_psg IN (
+        SELECT ID_psg
+        FROM PassengerCompanyStats
+        GROUP BY ID_psg
+        HAVING COUNT(DISTINCT ID_comp) = 1
+    )
+),
+MaxFlights AS (
+    SELECT MAX(flight_count) AS max_flight_count
+    FROM SingleCompanyPassengers
+)
+SELECT 
+    SingleCompanyPassengers.name,
+    SingleCompanyPassengers.flight_count,
+    SingleCompanyPassengers.company_name
+FROM SingleCompanyPassengers
+WHERE SingleCompanyPassengers.flight_count = (SELECT max_flight_count FROM MaxFlights);
+```
+
+Задание 89
+```
+WITH ModelCounts AS (
+    SELECT 
+        maker,
+        COUNT(model) AS model_count
+    FROM Product
+    GROUP BY maker
+),
+MaxCount AS (
+    SELECT MAX(model_count) AS max_count
+    FROM ModelCounts
+),
+MinCount AS (
+    SELECT MIN(model_count) AS min_count
+    FROM ModelCounts
+)
+SELECT 
+    maker,
+    model_count
+FROM ModelCounts
+WHERE model_count = (SELECT max_count FROM MaxCount)
+   OR model_count = (SELECT min_count FROM MinCount)
+ORDER BY model_count DESC;
+```
+
+Задание 90
+```
+WITH OrderedProducts AS (
+    SELECT *,
+           ROW_NUMBER() OVER (ORDER BY model) AS asc_rank,
+           ROW_NUMBER() OVER (ORDER BY model DESC) AS desc_rank
+    FROM Product
+)
+SELECT maker, model, type
+FROM OrderedProducts
+WHERE asc_rank > 3 
+  AND desc_rank > 3;
+```
+
+
 
 Задание 128
 ```
