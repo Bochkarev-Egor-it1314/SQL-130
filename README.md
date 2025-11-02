@@ -173,7 +173,11 @@ GROUP BY p.maker;
 
 Задание 20
 ```
-ошибка в задании
+SELECT maker, COUNT(model) AS pc_count
+FROM Product
+WHERE type = 'PC'
+GROUP BY maker
+HAVING COUNT(model) >= 3;
 ```
 
 Задание 21
@@ -344,7 +348,35 @@ WHERE bore >= 16;
 
 Задание 32
 ```
-none
+WITH AllShips AS (
+    SELECT 
+        s.name as ship_name,
+        c.country,
+        c.bore
+    FROM Ships s
+    JOIN Classes c ON s.class = c.class
+    UNION
+    SELECT 
+        o.ship as ship_name,
+        c.country,
+        c.bore
+    FROM Outcomes o
+    JOIN Classes c ON o.ship = c.class
+    WHERE o.ship NOT IN (SELECT name FROM Ships)
+),
+ShipMW AS (
+    SELECT 
+        country,
+        (POWER(bore, 3) / 2) as mw
+    FROM AllShips
+    WHERE bore IS NOT NULL
+)
+SELECT 
+    country,
+    CAST(ROUND(AVG(mw), 2) as DECIMAL(10,2)) as avg_mw
+FROM ShipMW
+GROUP BY country
+ORDER BY country;
 ```
 
 Задание 33
@@ -610,7 +642,40 @@ WHERE a.numGuns = (
 
 Задание 52
 ```
-none
+WITH PotentialJapaneseBB AS (
+    SELECT 
+        COALESCE(s.name, c.class) as ship_name,
+        c.country,
+        c.type,
+        c.numGuns,
+        c.bore,
+        c.displacement
+    FROM Classes c
+    LEFT JOIN Ships s ON c.class = s.class
+    WHERE c.country = 'Japan'
+    
+    UNION
+    
+
+    SELECT 
+        o.ship as ship_name,
+        NULL as country,
+        NULL as type,
+        NULL as numGuns,
+        NULL as bore,
+        NULL as displacement
+    FROM Outcomes o
+    WHERE o.ship NOT IN (SELECT name FROM Ships)
+      AND o.ship NOT IN (SELECT class FROM Classes)
+)
+SELECT ship_name
+FROM PotentialJapaneseBB
+WHERE (country = 'Japan' OR country IS NULL)
+  AND (type = 'bb' OR type IS NULL)
+  AND (numGuns >= 9 OR numGuns IS NULL)
+  AND (bore < 19 OR bore IS NULL)
+  AND (displacement <= 65000 OR displacement IS NULL)
+  AND ship_name IN (SELECT name FROM Ships);
 ```
 
 Задание 53
@@ -809,7 +874,17 @@ FROM (
 
 Задание 63
 ```
-none
+SELECT name 
+FROM Passenger 
+WHERE ID_psg IN (
+    SELECT ID_psg 
+    FROM (
+        SELECT ID_psg, place, COUNT(*) as cnt
+        FROM Pass_in_trip
+        GROUP BY ID_psg, place
+    ) t
+    WHERE cnt > 1
+);
 ```
 
 Задание 64
@@ -1380,7 +1455,6 @@ HAVING COUNT(DISTINCT type) = 1
    );
 ```
 
-
 Задание 86
 ```
 SELECT 
@@ -1512,7 +1586,264 @@ WHERE asc_rank > 3
   AND desc_rank > 3;
 ```
 
+Задание 91
+```
+WITH SquarePaint AS (
+  SELECT 
+    Q.Q_ID,
+    ISNULL(SUM(CASE WHEN V.V_COLOR = 'R' THEN B.B_VOL ELSE 0 END), 0) AS R_vol,
+    ISNULL(SUM(CASE WHEN V.V_COLOR = 'G' THEN B.B_VOL ELSE 0 END), 0) AS G_vol,
+    ISNULL(SUM(CASE WHEN V.V_COLOR = 'B' THEN B.B_VOL ELSE 0 END), 0) AS B_vol
+  FROM utQ Q
+  LEFT JOIN utB B ON Q.Q_ID = B.B_Q_ID
+  LEFT JOIN utV V ON B.B_V_ID = V.V_ID
+  GROUP BY Q.Q_ID
+)
+SELECT CAST(AVG(CAST(R_vol + G_vol + B_vol AS DECIMAL(10,2))) AS DECIMAL(10,2)) AS avg_paint
+FROM SquarePaint;
+```
 
+Задание 92
+```
+WITH BalloonUsage AS (
+  SELECT 
+    B_V_ID,
+    SUM(B_VOL) AS total_used
+  FROM utB
+  GROUP BY B_V_ID
+),
+SquareColors AS (
+  SELECT 
+    Q.Q_ID,
+    Q.Q_NAME,
+    SUM(CASE WHEN V.V_COLOR = 'R' THEN B.B_VOL ELSE 0 END) AS R_vol,
+    SUM(CASE WHEN V.V_COLOR = 'G' THEN B.B_VOL ELSE 0 END) AS G_vol,
+    SUM(CASE WHEN V.V_COLOR = 'B' THEN B.B_VOL ELSE 0 END) AS B_vol
+  FROM utQ Q
+  JOIN utB B ON Q.Q_ID = B.B_Q_ID
+  JOIN utV V ON B.B_V_ID = V.V_ID
+  GROUP BY Q.Q_ID, Q.Q_NAME
+  HAVING 
+    SUM(CASE WHEN V.V_COLOR = 'R' THEN B.B_VOL ELSE 0 END) = 255 AND
+    SUM(CASE WHEN V.V_COLOR = 'G' THEN B.B_VOL ELSE 0 END) = 255 AND
+    SUM(CASE WHEN V.V_COLOR = 'B' THEN B.B_VOL ELSE 0 END) = 255
+)
+SELECT 
+  sc.Q_NAME
+FROM SquareColors sc
+WHERE NOT EXISTS (
+  SELECT 1
+  FROM utB b
+  JOIN BalloonUsage bu ON b.B_V_ID = bu.B_V_ID
+  WHERE b.B_Q_ID = sc.Q_ID
+    AND bu.total_used < 255
+);
+```
+
+Задание 93
+```
+SELECT 
+    c.name AS company_name,
+    SUM(
+        CASE 
+            WHEN t.time_in >= t.time_out THEN 
+                DATEDIFF(minute, t.time_out, t.time_in)
+            ELSE 
+                DATEDIFF(minute, t.time_out, DATEADD(day, 1, t.time_in))
+        END
+    ) AS total_minutes
+FROM Company c
+JOIN Trip t ON c.ID_comp = t.ID_comp
+JOIN (
+    SELECT DISTINCT trip_no, date 
+    FROM Pass_in_trip
+) pit ON t.trip_no = pit.trip_no
+GROUP BY c.ID_comp, c.name
+ORDER BY c.name;
+```
+
+Задание 94
+```
+WITH RostovFlights AS (
+    SELECT 
+        pit.date,
+        COUNT(DISTINCT t.trip_no) as flight_count,
+        ROW_NUMBER() OVER (ORDER BY COUNT(DISTINCT t.trip_no) DESC, pit.date) as rn
+    FROM Trip t
+    JOIN Pass_in_trip pit ON t.trip_no = pit.trip_no
+    WHERE t.town_from = 'Rostov'
+    GROUP BY pit.date
+),
+MaxDate AS (
+    SELECT date
+    FROM RostovFlights
+    WHERE rn = 1
+),
+DateSeries AS (
+    SELECT DATEADD(day, n-1, (SELECT date FROM MaxDate)) as date
+    FROM (
+        SELECT 1 as n UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL 
+        SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7
+    ) numbers
+)
+SELECT 
+    ds.date,
+    COALESCE(rf.flight_count, 0) as flight_count
+FROM DateSeries ds
+LEFT JOIN RostovFlights rf ON ds.date = rf.date
+ORDER BY ds.date;
+```
+
+Задание 95
+```
+SELECT 
+    c.name AS company_name,
+    COUNT(DISTINCT CONCAT(pit.trip_no, '_', pit.date)) AS completed_flights,
+    COUNT(DISTINCT t.plane) AS plane_types_used,
+    COUNT(DISTINCT pit.ID_psg) AS unique_passengers,
+    COUNT(*) AS total_passengers_transported
+FROM Company c
+JOIN Trip t ON c.ID_comp = t.ID_comp
+JOIN Pass_in_trip pit ON t.trip_no = pit.trip_no
+GROUP BY c.ID_comp, c.name
+ORDER BY c.name;
+```
+
+Задание 96
+```
+none
+```
+
+Задание 97
+```
+WITH permutations AS (
+    SELECT 
+        code, speed, ram, price, screen,
+        v1, v2, v3, v4
+    FROM Laptop
+    CROSS APPLY (VALUES 
+        (speed, ram, price, screen),
+        (speed, ram, screen, price),
+        (speed, price, ram, screen),
+        (speed, price, screen, ram),
+        (speed, screen, ram, price),
+        (speed, screen, price, ram),
+        (ram, speed, price, screen),
+        (ram, speed, screen, price),
+        (ram, price, speed, screen),
+        (ram, price, screen, speed),
+        (ram, screen, speed, price),
+        (ram, screen, price, speed),
+        (price, speed, ram, screen),
+        (price, speed, screen, ram),
+        (price, ram, speed, screen),
+        (price, ram, screen, speed),
+        (price, screen, speed, ram),
+        (price, screen, ram, speed),
+        (screen, speed, ram, price),
+        (screen, speed, price, ram),
+        (screen, ram, speed, price),
+        (screen, ram, price, speed),
+        (screen, price, speed, ram),
+        (screen, price, ram, speed)
+    ) AS perm(v1, v2, v3, v4)
+)
+SELECT DISTINCT code, speed, ram, price, screen
+FROM permutations
+WHERE v2 >= 2 * v1 
+  AND v3 >= 2 * v2 
+  AND v4 >= 2 * v3;
+```
+
+Задание 98
+```
+WITH BinaryStrings AS (
+    SELECT 
+        code,
+        speed,
+        ram,
+        (
+            CASE WHEN (speed | ram) & 1 > 0 THEN '1' ELSE '0' END +
+            CASE WHEN (speed | ram) & 2 > 0 THEN '1' ELSE '0' END +
+            CASE WHEN (speed | ram) & 4 > 0 THEN '1' ELSE '0' END +
+            CASE WHEN (speed | ram) & 8 > 0 THEN '1' ELSE '0' END +
+            CASE WHEN (speed | ram) & 16 > 0 THEN '1' ELSE '0' END +
+            CASE WHEN (speed | ram) & 32 > 0 THEN '1' ELSE '0' END +
+            CASE WHEN (speed | ram) & 64 > 0 THEN '1' ELSE '0' END +
+            CASE WHEN (speed | ram) & 128 > 0 THEN '1' ELSE '0' END +
+            CASE WHEN (speed | ram) & 256 > 0 THEN '1' ELSE '0' END +
+            CASE WHEN (speed | ram) & 512 > 0 THEN '1' ELSE '0' END +
+            CASE WHEN (speed | ram) & 1024 > 0 THEN '1' ELSE '0' END +
+            CASE WHEN (speed | ram) & 2048 > 0 THEN '1' ELSE '0' END +
+            CASE WHEN (speed | ram) & 4096 > 0 THEN '1' ELSE '0' END +
+            CASE WHEN (speed | ram) & 8192 > 0 THEN '1' ELSE '0' END +
+            CASE WHEN (speed | ram) & 16384 > 0 THEN '1' ELSE '0' END +
+            CASE WHEN (speed | ram) & 32768 > 0 THEN '1' ELSE '0' END +
+            CASE WHEN (speed | ram) & 65536 > 0 THEN '1' ELSE '0' END +
+            CASE WHEN (speed | ram) & 131072 > 0 THEN '1' ELSE '0' END +
+            CASE WHEN (speed | ram) & 262144 > 0 THEN '1' ELSE '0' END +
+            CASE WHEN (speed | ram) & 524288 > 0 THEN '1' ELSE '0' END +
+            CASE WHEN (speed | ram) & 1048576 > 0 THEN '1' ELSE '0' END +
+            CASE WHEN (speed | ram) & 2097152 > 0 THEN '1' ELSE '0' END +
+            CASE WHEN (speed | ram) & 4194304 > 0 THEN '1' ELSE '0' END +
+            CASE WHEN (speed | ram) & 8388608 > 0 THEN '1' ELSE '0' END +
+            CASE WHEN (speed | ram) & 16777216 > 0 THEN '1' ELSE '0' END +
+            CASE WHEN (speed | ram) & 33554432 > 0 THEN '1' ELSE '0' END +
+            CASE WHEN (speed | ram) & 67108864 > 0 THEN '1' ELSE '0' END +
+            CASE WHEN (speed | ram) & 134217728 > 0 THEN '1' ELSE '0' END +
+            CASE WHEN (speed | ram) & 268435456 > 0 THEN '1' ELSE '0' END +
+            CASE WHEN (speed | ram) & 536870912 > 0 THEN '1' ELSE '0' END +
+            CASE WHEN (speed | ram) & 1073741824 > 0 THEN '1' ELSE '0' END
+        ) as binary_string
+    FROM PC
+)
+SELECT 
+    code AS [код модели],
+    speed AS [скорость процессора],
+    ram AS [объем памяти]
+FROM BinaryStrings
+WHERE binary_string LIKE '%1111%';
+```
+
+Задание 99
+```
+SELECT 
+  i.point,
+  i.date as income_date,
+  CASE 
+    -- Если в дату прихода нет расхода - берем дату прихода
+    WHEN NOT EXISTS (
+      SELECT 1 FROM Outcome_o o 
+      WHERE o.point = i.point AND o.date = i.date
+    ) THEN i.date
+    -- Иначе ищем следующую подходящую дату
+    ELSE (
+      SELECT MIN(next_date)
+      FROM (
+        -- Проверяем даты в пределах 30 дней
+        SELECT DATEADD(day, n, i.date) as next_date
+        FROM (
+          SELECT 0 UNION SELECT 1 UNION SELECT 2 UNION SELECT 3 UNION SELECT 4 UNION SELECT 5 UNION SELECT 6
+          UNION SELECT 7 UNION SELECT 8 UNION SELECT 9 UNION SELECT 10 UNION SELECT 11 UNION SELECT 12
+          UNION SELECT 13 UNION SELECT 14 UNION SELECT 15 UNION SELECT 16 UNION SELECT 17 UNION SELECT 18
+          UNION SELECT 19 UNION SELECT 20 UNION SELECT 21 UNION SELECT 22 UNION SELECT 23 UNION SELECT 24
+          UNION SELECT 25 UNION SELECT 26 UNION SELECT 27 UNION SELECT 28 UNION SELECT 29 UNION SELECT 30
+        ) numbers(n)
+        WHERE n >= 0 -- включая саму дату прихода (n=0)
+      ) dates
+      WHERE 
+        -- Не воскресенье
+        DATEPART(weekday, next_date) <> 1
+        -- Нет расхода на этом пункте в эту дату
+        AND NOT EXISTS (
+          SELECT 1 FROM Outcome_o o 
+          WHERE o.point = i.point AND o.date = next_date
+        )
+    )
+  END as collection_date
+FROM Income_o i
+ORDER BY i.point, i.date;
+```
 
 Задание 128
 ```
